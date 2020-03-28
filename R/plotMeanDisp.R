@@ -1,9 +1,9 @@
 plotMeanDisp <- function(x, filter = TRUE, q = 0.01) {
     rd <- rowData(x)
     df <- data.frame(
-        mean = rd$mean_logCPM,
-        disp = rd$tagwise_disp,
-        trend = rd$trended_disp)
+        mean = rd$AveLogCPM,
+        disp = rd$tagwise.dispersion,
+        trend = rd$trended.dispersion)
     if (filter)
         df <- filter(df,
             disp > quantile(disp,   q),
@@ -38,3 +38,30 @@ plotMeanDisp <- function(x, filter = TRUE, q = 0.01) {
         guides(color = guide_legend(override.aes = list(size = 3)))
     ggMarginal(p, type = "histogram", bins = 50, fill = "grey", col = "white")
 }
+library(MASS)
+
+y <- rowData(x)
+# q <- quantile(y$tagwise_disp, 0.01)
+# y <- y[y$tagwise_disp > q, ]
+
+ltd <- log(td <- y$tagwise_disp)
+hist(td, n = 50, prob = TRUE)
+
+par(mfrow = c(1, 2))
+hist(y$mean_logCPM, n = 50)
+fit <- fitdistr(ltd, "normal")
+ests <- as.list(fit$estimate)
+xs <- seq(min(ltd), max(ltd), l = 1e3)
+hist(ltd, n = 50, prob = TRUE)
+lines(xs, dnorm(xs, ests$mean, ests$sd), col = "red")
+
+fit <- fitdistr(td, "t")
+ests <- as.list(fit$estimate)
+xs <- seq(min(ltd), max(ltd), l = 1e3)
+hist(ltd, n = 50, prob = TRUE)
+#lines(xs, rnorm(xs, ests$shape, ests$rate), col = "red")
+
+fun <- approxfun(density(ltd))
+lines(xs, fun(xs), col = "red")
+
+plotMeanDisp(x)
