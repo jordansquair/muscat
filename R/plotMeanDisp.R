@@ -15,7 +15,7 @@ plotMeanDisp <- function(x, filter = TRUE, q = 0.01) {
         geom_line(size = 1, show.legend = FALSE,
             aes(col = "tomato", mean, trend)) +
         geom_hline(size = 0.5, lty = 2, show.legend = FALSE,
-            aes(col = "black", yintercept = metadata(x)$common_disp)) +
+            aes(col = "black", yintercept = metadata(x)$common.dispersion)) +
         scale_y_log10(labels = function(u) format(u, scientific = TRUE)) + 
         theme_bw() + theme(
             panel.border = element_rect(size = 1),
