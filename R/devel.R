@@ -1,16 +1,30 @@
-x <- x1
-ng <- 500
-nc <- 2e3
-nk <- ns <- 3
-kp <- sp <- gp <- NULL
-pdd <- c(0.2, 0.2, rep(0.15, 4))
-lfc <- list(dist = "gamma", shape = 4, rate = 2)
-paired <- FALSE
+# source("R/estPars.R")
+# source("R/utils.R")
+# suppressPackageStartupMessages({
+#     library(edgeR)
+#     library(MASS)
+#     library(SingleCellExperiment)
+# })
+# data(sce); x <- sce; x0 <- estPars(x)
+# x <- x0
+# ng <- 500
+# nc <- 2e3
+# nk <- ns <- 3
+# kp <- sp <- gp <- NULL
+# pdd <- c(0.2, 0.2, rep(0.15, 4))
+# lfc <- list(dist = "gamma", shape = 4, rate = 2)
+# paired <- FALSE
+# cats <- muscat:::cats
 
-# simData <- function(x, ng, nc, nk, ns, 
-#     kp = NULL, sp = NULL, gp = NULL,
-#     pdd = diag(6)[1, ], lfc = list("gamma", shape = 4, rate = 2)) {
+simData <- function(x, 
+    nc = 2e3, #ng = 1e3, nk = 4, ns = 3,
+    kp = NULL, sp = NULL, gp = NULL, paired = TRUE,
+    pdd = diag(6)[1, ], lfc = list(family = "gamma", shape = 4, rate = 2)) {
 
+    ng <- nrow(x)
+    nk <- nlevels(x$cluster_id)
+    ns <- nlevels(x$sample_id)
+    
     # throughout this code...
     # k = cluster ID
     # s = sample ID
@@ -18,6 +32,8 @@ paired <- FALSE
     # c = DD category
     # 0 = reference
     
+    args <- as.list(environment())
+
     # get reference IDs
     names(kids0) <- kids0 <- levels(x$cluster_id)
     names(sids0) <- sids0 <- levels(x$sample_id)
@@ -46,12 +62,17 @@ paired <- FALSE
     # get cell indices for each cluster-sample-group
     dt <- data.table(cell_id = rownames(cd), cd)
     ci <- split(dt, by = colnames(cd), sorted = TRUE, flatten = FALSE)
-    ci <- map_depth(ci, ncol(cd), "cell_id")
+    ci <- vapply(sids, function(s) {
+        lapply(kids, function(k) 
+            map(ci[[k]][[s]], "cell_id"))
+    }, vector("list", nk))
     
     # split reference cells by cluster-sample
     cd0 <- as.data.frame(colData(x))
     dt0 <- data.table(cell_id = colnames(x), cd0)
-    dt0 <- split(dt0, by = c("cluster_id", "sample_id"), sorted = TRUE, flatten = FALSE)
+    dt0 <- split(dt0, 
+        sorted = TRUE, flatten = FALSE,
+        by = c("cluster_id", "sample_id"))
     cs0 <- map_depth(dt0, 2, "cell_id")
     
     # sample number of genes to simulate per DD category
@@ -67,6 +88,15 @@ paired <- FALSE
     # sample reference genes to simulate from 
     gs0 <- set_names(sample(rownames(x), ng, ng > nrow(x)), gs)
     
+    # split by cluster & categroy
+    gs0 <- replicate(nk, gs0)
+    gs0 <- split(gs0, col(gs0))
+    gs0 <- set_names(map(gs0, set_names, gs), kids)
+    gs0 <- vapply(kids, function(k) {
+        lapply(unfactor(cats), function(c) 
+            gs0[[k]][gi[[c, k]]])
+    }, vector("list", length(cats)))
+    
     # sample reference clusters & samples
     kids0_use <- setNames(sample(kids0, nk, nk > nk0), kids)
     if (paired) { 
@@ -80,9 +110,9 @@ paired <- FALSE
     dimnames(sids0_use) <- list(sids, gids)
     
     # sample logFCs for each cluster-category
-    fun <- get(paste0("r", lfc$dist))
-    lfc <- lfc[-grep("dist", names(lfc))]
-    lfc <- vapply(kids, function(k)
+    dist <- get(paste0("r", lfc$family))
+    pars <- lfc[-grep("family", names(lfc))]
+    lfcs <- vapply(kids, function(k)
         lapply(unfactor(cats), function(c) {
             n <- ndd[c, k]
             if (c == "ee")
@@ -91,55 +121,82 @@ paired <- FALSE
             # equal probability of up- & down-regulation
             dirs <- sample(c(-1, 1), n, TRUE) 
             # sample logFCs from input distribution
-            lfcs <- set_names(do.call(fun, c(n, lfc)), gs0[[k]][[c]])
+            set_names(do.call(dist, c(n, pars)), gs0[[c, k]])
         }), vector("list", length(cats)))
     
-    # fit offsets for each cluster-sample
-    fits <- map_depth(dt0, 2, function(u) {
-        fits <- fitdistr(u$offset, "normal")
-        as.list(fits$estimate)
-    })
-    
-    mapply(function(k, s) {
-        dt <- data.table(cell_id = rownames(cd), cd)
-        ci <- split(dt, by = colnames(cd), sorted = TRUE, flatten = FALSE)
-        ci <- map_depth(ci, ncol(cd), "cell_id")
-        dt <- data.table(cell_id = colnames(x), as.data.frame(colData(x)))
-        cs0 <- split(dt, by = c("cluster_id", "sample_id"), sorted = TRUE, flatten = FALSE)
-        cs0 <- map_depth(cs0, 2, "cell_id")
-        
+    # sample counts for each cluster, sample, category -------------------------
+    res <- mapply(function(k, s) {
         # get reference cluster, samples, cells
         k0 <- kids0_use[[k]]
         s0 <- sids0_use[s, ]
-        cs0 <- cs0[[k0]][s0]
+        cs0_ks <- set_names(cs0[[k0]][s0], gids)
         
-        # get simulation cell indices
-        ci <- ci[[k]][[s]]
+        # get simulation cell indices & 
+        # number of cells to simulate per group
+        ci_ks <- ci[[k, s]]
+        ncs <- lapply(ci_ks, length)
         
-        # get number of cells to simulate per group
-        ncs <- vapply(ci, length, numeric(1))
-        
-        lapply(cats[ndd[, k] != 0], function(c) {
-            # get reference genes
-            gs0 <- gs0[[k]][[c]]
-            
-            # get simulation gene indices
-            gi <- gi[[c, k]]
-            
-            # compute NB parameters
-            ds <- rowData(x)[gs0, "dispersion"] # get dispersions
-            os <- lapply(gids, function(g) {    # sample offsets
-                fit <- fits[[k0]][[s0[g]]]
-                do.call(rnorm, c(ncs[[g]], fit))
+        res <- lapply(unfactor(cats[ndd[, k] != 0]), function(c) {
+            # get reference genes & simulation gene indices
+            gs0_kc <- gs0[[c, k]]
+            gi_kc <- gi[[c, k]]
+            # sample NB parameters
+            ds <- set_names(rowData(x)[gs0_kc, "tagwise.dispersion"], gi_kc)
+            bs <- set_names(metadata(x)$betas[k0, s0], gids)
+            os <- set_names(metadata(x)$offsets[k0, s0], gids)
+            mus <- map(os, "mean")
+            sds <- map(os, "sd")
+            ms <- lapply(gids, function(g) {
+                bs <- bs[[g]][gs0_kc]
+                os <- rnorm(ncs[[g]], mus[[g]], sds[[g]])
+                outer(exp(bs), exp(os)) %>% 
+                    set_rownames(gi_kc) %>% 
+                    set_colnames(ci_ks[[g]])
             })
-            ms <- lapply(gids, function(g) { # compute NB means
-                ms <- ds %o% os[[g]]
-                dimnames(ms) <- list(gi, ci[[g]])
-                return(ms)
-            })      
-            
             # sample counts
-            
+            res <- .sim(
+                cat = c, cs = ci_ks, ms, ds, 
+                lfcs = lfcs[[c, k]], ep, dp, dm)
         })
-    })
+        counts <- map_depth(res, 1, "cs") %>% 
+            lapply("[", i = TRUE, j = unlist(ci_ks)) %>% 
+            do.call(what = "rbind") %>% `[`(i = gs, j = TRUE)
+    }, k = rep(kids, each = ns), s = rep(sids, nk), SIMPLIFY = FALSE)
+    y <- do.call("cbind", res)[, cs]
+    
+    # construct gene metadata table storing ------------------------------------
+    # gene | cluster_id | category | logFC | ref. gene | disp | gorup means
+    md <- data.frame(
+        gene = unlist(gi),
+        cluster_id = rep.int(rep(kids, each = length(cats)), c(ndd)),
+        category = rep.int(rep(cats, nk), c(ndd)),
+        logFC = unlist(lfcs),
+        ref_gene = unlist(gs0))
+    o <- order(as.numeric(gsub("[a-z]", "", md$gene)))
+    md <- md[o, ]; rownames(gi) <- NULL
+    
+    # construct SCE ------------------------------------------------------------
+    # cell metadata including group, sample, cluster IDs
+    cd <- mutate_all(cd, as.factor)
+    cd$group_id <- droplevels(cd$group_id)
+    cd$sample_id <- factor(paste(cd$group_id, cd$sample_id, sep = "."))
+    sids <- levels(cd$sample_id)
+    m <- match(sids, cd$sample_id)
+    o <- order(gids <- cd$group_id[m])
+    ei <- data.frame(sample_id = sids[o], group_id = gids[o])
+    # gene metadata storing gene classes & specificities
+    rd <- NULL
+    # simulation metadata including reference 
+    # clusters/samples, gene metadata, function call
+    md <- list(
+        experiment_info = ei,
+        n_cells = table(cd$sample_id),
+        gene_info = gi,
+        ref_kids = kids0_use,
+        ref_sids = sids0_use, 
+        args = args)
+    # return SCE
+    SingleCellExperiment(
+        assays = list(counts = as.matrix(y)),
+        colData = cd, rowData = rd, metadata = md)
 }

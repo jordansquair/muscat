@@ -78,8 +78,8 @@ estPars <- function(x,
     
     # get final cell metadata
     cd <- as.data.frame(colData(x))
-    nk <- length(kids <- set_names(levels(x$cluster_id)))
-    ns <- length(sids <- set_names(levels(x$sample_id)))
+    nk <- length(kids <- purrr::set_names(levels(x$cluster_id)))
+    ns <- length(sids <- purrr::set_names(levels(x$sample_id)))
     
     # construct design matrix
     f <- paste( 
@@ -100,6 +100,7 @@ estPars <- function(x,
     # format into 'nk' x 'ns' matrix
     bs <- fit$coefficients
     bs <- split(bs, col(bs))
+    bs <- map(bs, set_names, rownames(x))
     bs <- matrix(bs, nk, ns, TRUE, list(kids, sids))
     
     # fit cell offsets by cluster-sample
@@ -119,7 +120,7 @@ estPars <- function(x,
     # write average logCPM, tagwise & trended 
     # dispersion estimates to gene metadata
     vars <- c("AveLogCPM", "tagwise.dispersion", "trended.dispersion")
-    pars <- vapply(set_names(vars), function(u) y[[u]], numeric(nrow(x)))
+    pars <- vapply(purrr::set_names(vars), function(u) y[[u]], numeric(nrow(x)))
     rowData(x) <- cbind(rowData(x), pars)
     
     # store common dispersion, betas, 

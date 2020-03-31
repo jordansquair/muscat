@@ -263,23 +263,23 @@ cats <- factor(cats, levels = cats)
 # of dispersions ('size') and means ('mu')
 # ------------------------------------------------------------------------------
 #' @importFrom stats rnbinom
-.nb <- function(cs, d, m, lfc = NULL, f = 1) {
-    n_gs <- length(d)
-    n_cs <- length(cs)
-    if (is.null(lfc)) {
-        lfc <- rep(0, n_gs)
+.nb <- function(cs, ds, m, lfcs = NULL, f = 1) {
+    ng <- length(ds)
+    nc <- length(cs)
+    if (is.null(lfcs)) {
+        lfcs <- rep(0, ng)
     } else {
-        lfc[lfc < 0] <- 0
+        lfcs[lfcs < 0] <- 0
     }
-    fc <- f * (2 ^ lfc)
-    fc <- rep(fc, each = n_cs)
-    ds <- rep(1/d, each = n_cs)
-    ms <- c(t(m[, cs])) * fc 
-    y <- rnbinom(n_gs * n_cs, size = ds, mu = ms)
+    fcs <- f * (2 ^ lfcs)
+    fcs <- rep(fcs, each = nc)
+    ss <- rep(1/ds, each = nc)
+    ms <- c(t(m[, cs])) * fcs 
+    y <- rnbinom(ng * nc, size = ss, mu = ms)
     y <- matrix(y, byrow = TRUE, 
-        nrow = n_gs, ncol = n_cs, 
-        dimnames = list(names(d), cs))
-    ms <- split(ms, rep(seq_len(nrow(m)), each = n_cs))
+        nrow = ng, ncol = nc, 
+        dimnames = list(names(ds), cs))
+    ms <- split(ms, rep(seq_len(nrow(m)), each = nc))
     list(counts = y, means = ms)
 }
 
@@ -294,74 +294,71 @@ cats <- factor(cats, levels = cats)
 #   d:   numeric vector of dispersions
 #   lfc: numeric vector of logFCs
 # ------------------------------------------------------------------------------
-.sim <- function(
-    cat = c("ee", "ep", "de", "dp", "dm", "db"),
-    cs_g1, cs_g2, m_g1, m_g2, d, lfc, ep, dp, dm) {
+.sim <- function(cat = unfactor(cats), cs, ms, ds, lfcs, ep, dp, dm) {
     
     cat <- match.arg(cat)
-    ng1 <- length(cs_g1)
-    ng2 <- length(cs_g2)
-    
-    re <- switch(cat,
+    ncs <- lapply(cs, length)
+
+    res <- switch(cat,
         "ee" = {
             list(
-                .nb(cs_g1, d, m_g1),
-                .nb(cs_g2, d, m_g2))
+                .nb(cs$A, ds, ms$A),
+                .nb(cs$B, ds, ms$B))
         },
         "ep" = {
-            g1_hi <- sample(ng1, round(ng1 * ep))
-            g2_hi <- sample(ng2, round(ng2 * ep))
+            g1_hi <- sample(ncs$A, round(ncs$A * ep))
+            g2_hi <- sample(ncs$B, round(ncs$B * ep))
             list(
-                .nb(cs_g1[-g1_hi], d, m_g1),
-                .nb(cs_g1[ g1_hi], d, m_g1, lfc), # 50% g1 hi
-                .nb(cs_g2[-g2_hi], d, m_g2),
-                .nb(cs_g2[ g2_hi], d, m_g2, lfc)) # 50% g2 hi
+                .nb(cs$A[-g1_hi], ds, ms$A),
+                .nb(cs$A[ g1_hi], ds, ms$A, lfcs), # 50% g1 hi
+                .nb(cs$B[-g2_hi], ds, ms$B),
+                .nb(cs$B[ g2_hi], ds, ms$B, lfcs)) # 50% g2 hi
         },
         "de" = {
             list(
-                .nb(cs_g1, d, m_g1, -lfc), # lfc < 0 => all g1 hi
-                .nb(cs_g2, d, m_g2,  lfc)) # lfc > 0 => all g2 hi
+                .nb(cs$A, ds, ms$A, -lfcs), # lfcs < 0 => all g1 hi
+                .nb(cs$B, ds, ms$B,  lfcs)) # lfcs > 0 => all g2 hi
         },
         "dp" = {
             props <- sample(c(dp, 1 - dp), 2)
-            g1_hi <- sample(ng1, round(ng1 * props[1]))
-            g2_hi <- sample(ng2, round(ng2 * props[2]))
+            g1_hi <- sample(ncs$A, round(ncs$A * props[1]))
+            g2_hi <- sample(ncs$B, round(ncs$B * props[2]))
             list(                           
-                .nb(cs_g1[-g1_hi], d, m_g1), 
-                .nb(cs_g1[ g1_hi], d, m_g1,  lfc), # lfc > 0 => dp/(1-dp)% up
-                .nb(cs_g2[-g2_hi], d, m_g2), 
-                .nb(cs_g2[ g2_hi], d, m_g2, -lfc)) # lfc < 0 => (1-dp)/dp% up
+                .nb(cs$A[-g1_hi], ds, ms$A), 
+                .nb(cs$A[ g1_hi], ds, ms$A,  lfcs), # lfcs > 0 => dp/(1-dp)% up
+                .nb(cs$B[-g2_hi], ds, ms$B), 
+                .nb(cs$B[ g2_hi], ds, ms$B, -lfcs)) # lfcs < 0 => (1-dp)/dp% up
         },
         "dm" = {
-            g1_hi <- sample(ng1, round(ng1 * dm))
-            g2_hi <- sample(ng2, round(ng2 * dm))
+            g1_hi <- sample(ncs$A, round(ncs$A * dm))
+            g2_hi <- sample(ncs$B, round(ncs$B * dm))
             list(
-                .nb(cs_g1[-g1_hi], d, m_g1),
-                .nb(cs_g1[ g1_hi], d, m_g1, -lfc), # lfc < 0 => 50% g1 hi
-                .nb(cs_g2[-g2_hi], d, m_g2),
-                .nb(cs_g2[ g2_hi], d, m_g2,  lfc)) # lfc > 0 => 50% g2 hi
+                .nb(cs$A[-g1_hi], ds, ms$A),
+                .nb(cs$A[ g1_hi], ds, ms$A, -lfcs), # lfcs < 0 => 50% g1 hi
+                .nb(cs$B[-g2_hi], ds, ms$B),
+                .nb(cs$B[ g2_hi], ds, ms$B,  lfcs)) # lfcs > 0 => 50% g2 hi
         }, 
         "db" = {
             if (sample(c(TRUE, FALSE), 1)) {
                 # all g1 mi, 50% g2 hi
-                g2_hi <- sample(ng2, round(ng2 * 0.5))
+                g2_hi <- sample(ncs$B, round(ncs$B * 0.5))
                 list(
-                    .nb(cs_g1, d, m_g1, abs(lfc), 0.5),
-                    .nb(cs_g2[-g2_hi], d, m_g2, -lfc), 
-                    .nb(cs_g2[ g2_hi], d, m_g2,  lfc)) 
+                    .nb(cs$A, ds, ms$A, abs(lfcs), 0.5),
+                    .nb(cs$B[-g2_hi], ds, ms$B, -lfcs), 
+                    .nb(cs$B[ g2_hi], ds, ms$B,  lfcs)) 
             } else {
                 # all g2 mi, 50% g1 hi
-                g1_hi <- sample(ng1, round(ng1 * 0.5))
+                g1_hi <- sample(ncs$A, round(ncs$A * 0.5))
                 list(
-                    .nb(cs_g2, d, m_g2, abs(lfc), 0.5), 
-                    .nb(cs_g1[-g1_hi], d, m_g1, -lfc),  
-                    .nb(cs_g1[ g1_hi], d, m_g1,  lfc))  
+                    .nb(cs$B, ds, ms$B, abs(lfcs), 0.5), 
+                    .nb(cs$A[-g1_hi], ds, ms$A, -lfcs),  
+                    .nb(cs$A[ g1_hi], ds, ms$A,  lfcs))  
             }
         }
     )
-    cs <- map(re, "counts")
+    cs <- map(res, "counts")
     cs <- do.call("cbind", cs)
-    ms <- map(re, "means")
+    ms <- map(res, "means")
     rmv <- vapply(ms, is.null, logical(1))
     ms <- ms[!rmv] %>% 
         map_depth(2, mean) %>% 
@@ -371,14 +368,14 @@ cats <- factor(cats, levels = cats)
     ms <- switch(cat, 
         ee = ms,
         de = ms,
-        db = if (ng2 == 0) {
+        db = if (ncs$B == 0) {
             as.matrix(
                 ms[, 1])
         } else {
             cbind(
                 ms[, 1],
                 rowMeans(ms[, c(2, 3)]))
-        }, if (ng2 == 0) {
+        }, if (ncs$B == 0) {
             as.matrix(
                 rowMeans(ms[, c(1, 2)]))
         } else {
@@ -387,6 +384,7 @@ cats <- factor(cats, levels = cats)
                 rowMeans(ms[, c(3, 4)]))
         })
     ms <- split(ms, col(ms))
-    names(ms) <- c("A", "B")[c(ng1, ng2) != 0]
+    ms <- set_names(ms, c("A", "B"))
+    #names(ms) <- c("A", "B")[c(ncs$A, ncs$B) != 0]
     list(cs = cs, ms = ms)
 }

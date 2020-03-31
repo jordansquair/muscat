@@ -329,8 +329,7 @@ simData <- function(x, nc = 2e3, ns = 3, nk = 3,
     cd$group_id <- droplevels(cd$group_id)
     cd$sample_id <- factor(paste(cd$sample_id, cd$group_id, sep = "."))
     m <- match(levels(cd$sample_id), cd$sample_id)
-    gids <- cd$group_id[m]
-    o <- order(gids)
+    o <- order(gids <- cd$group_id[m])
     sids <- levels(cd$sample_id)[o]
     ei <- data.frame(sample_id = sids, group_id = gids[o])
     cd <- cd %>% mutate_at("sample_id", factor, levels = sids)
