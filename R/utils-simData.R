@@ -302,57 +302,57 @@ cats <- factor(cats, levels = cats)
     res <- switch(cat,
         "ee" = {
             list(
-                .nb(cs$A, ds, ms$A),
-                .nb(cs$B, ds, ms$B))
+                .nb(cs$group1, ds, ms$group1),
+                .nb(cs$group2, ds, ms$group2))
         },
         "ep" = {
-            g1_hi <- sample(ncs$A, round(ncs$A * ep))
-            g2_hi <- sample(ncs$B, round(ncs$B * ep))
+            g1_hi <- sample(ncs$group1, round(ncs$group1 * ep))
+            g2_hi <- sample(ncs$group2, round(ncs$group2 * ep))
             list(
-                .nb(cs$A[-g1_hi], ds, ms$A),
-                .nb(cs$A[ g1_hi], ds, ms$A, lfcs), # 50% g1 hi
-                .nb(cs$B[-g2_hi], ds, ms$B),
-                .nb(cs$B[ g2_hi], ds, ms$B, lfcs)) # 50% g2 hi
+                .nb(cs$group1[-g1_hi], ds, ms$group1),
+                .nb(cs$group1[ g1_hi], ds, ms$group1, lfcs), # 50% g1 hi
+                .nb(cs$group2[-g2_hi], ds, ms$group2),
+                .nb(cs$group2[ g2_hi], ds, ms$group2, lfcs)) # 50% g2 hi
         },
         "de" = {
             list(
-                .nb(cs$A, ds, ms$A, -lfcs), # lfcs < 0 => all g1 hi
-                .nb(cs$B, ds, ms$B,  lfcs)) # lfcs > 0 => all g2 hi
+                .nb(cs$group1, ds, ms$group1, -lfcs), # lfcs < 0 => all g1 hi
+                .nb(cs$group2, ds, ms$group2,  lfcs)) # lfcs > 0 => all g2 hi
         },
         "dp" = {
             props <- sample(c(dp, 1 - dp), 2)
-            g1_hi <- sample(ncs$A, round(ncs$A * props[1]))
-            g2_hi <- sample(ncs$B, round(ncs$B * props[2]))
+            g1_hi <- sample(ncs$group1, round(ncs$group1 * props[1]))
+            g2_hi <- sample(ncs$group2, round(ncs$group2 * props[2]))
             list(                           
-                .nb(cs$A[-g1_hi], ds, ms$A), 
-                .nb(cs$A[ g1_hi], ds, ms$A,  lfcs), # lfcs > 0 => dp/(1-dp)% up
-                .nb(cs$B[-g2_hi], ds, ms$B), 
-                .nb(cs$B[ g2_hi], ds, ms$B, -lfcs)) # lfcs < 0 => (1-dp)/dp% up
+                .nb(cs$group1[-g1_hi], ds, ms$group1), 
+                .nb(cs$group1[ g1_hi], ds, ms$group1,  lfcs), # lfcs > 0 => dp/(1-dp)% up
+                .nb(cs$group2[-g2_hi], ds, ms$group2), 
+                .nb(cs$group2[ g2_hi], ds, ms$group2, -lfcs)) # lfcs < 0 => (1-dp)/dp% up
         },
         "dm" = {
-            g1_hi <- sample(ncs$A, round(ncs$A * dm))
-            g2_hi <- sample(ncs$B, round(ncs$B * dm))
+            g1_hi <- sample(ncs$group1, round(ncs$group1 * dm))
+            g2_hi <- sample(ncs$group2, round(ncs$group2 * dm))
             list(
-                .nb(cs$A[-g1_hi], ds, ms$A),
-                .nb(cs$A[ g1_hi], ds, ms$A, -lfcs), # lfcs < 0 => 50% g1 hi
-                .nb(cs$B[-g2_hi], ds, ms$B),
-                .nb(cs$B[ g2_hi], ds, ms$B,  lfcs)) # lfcs > 0 => 50% g2 hi
+                .nb(cs$group1[-g1_hi], ds, ms$group1),
+                .nb(cs$group1[ g1_hi], ds, ms$group1, -lfcs), # lfcs < 0 => 50% g1 hi
+                .nb(cs$group2[-g2_hi], ds, ms$group2),
+                .nb(cs$group2[ g2_hi], ds, ms$group2,  lfcs)) # lfcs > 0 => 50% g2 hi
         }, 
         "db" = {
             if (sample(c(TRUE, FALSE), 1)) {
                 # all g1 mi, 50% g2 hi
-                g2_hi <- sample(ncs$B, round(ncs$B * 0.5))
+                g2_hi <- sample(ncs$group2, round(ncs$group2 * 0.5))
                 list(
-                    .nb(cs$A, ds, ms$A, abs(lfcs), 0.5),
-                    .nb(cs$B[-g2_hi], ds, ms$B, -lfcs), 
-                    .nb(cs$B[ g2_hi], ds, ms$B,  lfcs)) 
+                    .nb(cs$group1, ds, ms$group1, abs(lfcs), 0.5),
+                    .nb(cs$group2[-g2_hi], ds, ms$group2, -lfcs), 
+                    .nb(cs$group2[ g2_hi], ds, ms$group2,  lfcs)) 
             } else {
                 # all g2 mi, 50% g1 hi
-                g1_hi <- sample(ncs$A, round(ncs$A * 0.5))
+                g1_hi <- sample(ncs$group1, round(ncs$group1 * 0.5))
                 list(
-                    .nb(cs$B, ds, ms$B, abs(lfcs), 0.5), 
-                    .nb(cs$A[-g1_hi], ds, ms$A, -lfcs),  
-                    .nb(cs$A[ g1_hi], ds, ms$A,  lfcs))  
+                    .nb(cs$group2, ds, ms$group2, abs(lfcs), 0.5), 
+                    .nb(cs$group1[-g1_hi], ds, ms$group1, -lfcs),  
+                    .nb(cs$group1[ g1_hi], ds, ms$group1,  lfcs))  
             }
         }
     )
@@ -363,19 +363,18 @@ cats <- factor(cats, levels = cats)
     ms <- ms[!rmv] %>% 
         map_depth(2, mean) %>% 
         map_depth(1, unlist) %>% 
-        bind_cols %>% 
-        as.matrix
+        do.call(what = cbind)
     ms <- switch(cat, 
         ee = ms,
         de = ms,
-        db = if (ncs$B == 0) {
+        db = if (ncs$group2 == 0) {
             as.matrix(
                 ms[, 1])
         } else {
             cbind(
                 ms[, 1],
                 rowMeans(ms[, c(2, 3)]))
-        }, if (ncs$B == 0) {
+        }, if (ncs$group2 == 0) {
             as.matrix(
                 rowMeans(ms[, c(1, 2)]))
         } else {
@@ -383,8 +382,7 @@ cats <- factor(cats, levels = cats)
                 rowMeans(ms[, c(1, 2)]),
                 rowMeans(ms[, c(3, 4)]))
         })
-    ms <- split(ms, col(ms))
-    ms <- set_names(ms, c("A", "B"))
-    #names(ms) <- c("A", "B")[c(ncs$A, ncs$B) != 0]
+    rownames(ms) <- rownames(cs)
+    colnames(ms) <- names(which(ncs != 0))
     list(cs = cs, ms = ms)
 }

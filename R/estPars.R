@@ -4,21 +4,21 @@
 #     pdd = diag(6)[1, ], lfc = list(dist = "gamma", shape = 4, rate = 2),
 #     paired = FALSE) {
 
-data(sce)
-x <- sce
-x$batch_id <- sample(x$group_id)
-x <- x[, x$group_id == "ctrl"]
-x$group_id <- factor("a")
-kid <- "cluster_id"
-sid <- "sample_id"
-bid <- "batch_id"
-gid <- "group_id"
-guse <- NULL
-min_count <- 1
-min_cells <- 20
-min_genes <- 100
-min_size <- 100
-verbose <- TRUE
+# data(sce)
+# x <- sce
+# x$batch_id <- sample(x$group_id)
+# x <- x[, x$group_id == "ctrl"]
+# x$group_id <- factor("a")
+# kid <- "cluster_id"
+# sid <- "sample_id"
+# bid <- "batch_id"
+# gid <- "group_id"
+# guse <- NULL
+# min_count <- 1
+# min_cells <- 10
+# min_genes <- 100
+# min_size <- 100
+# verbose <- TRUE
 
 estPars <- function(x,
     kid = "cluster_id", sid = "sample_id", bid = "batch_id", gid = "group_id", guse = NULL,
@@ -63,9 +63,10 @@ estPars <- function(x,
     for (id in defs) x[[id]] <- factor(x[[id]])
 
     # default to using first group available
-    if (is.null(guse)) 
+    if (is.null(guse) && !is.null(gid)) {
         guse <- levels(x[[gid]])[1] 
-    x <- x[, x[[gid]] == guse]
+        x <- x[, x[[gid]] == guse]
+    } 
     
     # keep cells with ≥ 'min_genes' detected;
     # keep genes with ≥ 'min_count's in ≥ 'min_cells'
@@ -92,24 +93,14 @@ estPars <- function(x,
     nb <- length(names(bids) <- bids <- levels(x[[bid]]))
     
     # construct design matrix
-    # f <- paste(
-    #     ifelse(nk == 1, "", "cluster_id"),
-    #     ifelse(ns == 1, "", "sample_id"),
-    #     sep = ifelse(nk == 1 || ns == 1, "", ":"))
-    # if (length(f) == 0) {
-    #     mm <- NULL
-    # } else {
-    #     df <- mutate(cd, foo = paste(cluster_id, sample_id, sep = "."))
-    #     f <- as.formula(paste("~0+foo"))
-    #     mm <- model.matrix(f, data = df)
-    # }
-    
-    #df <- mutate(cd, foo = paste(cluster_id, sample_id, sep = "."))
-    f <- as.formula(paste("~0+cluster_id+cluster_id:sample_id+cluster_id:batch_id"))
-    mm <- model.matrix(f, data = cd)
+    f <- "~0+cluster_id"
+    if (!is.null(sid)) f <- paste(f, "+cluster_id:sample_id")
+    if (!is.null(bid)) f <- paste(f, "+cluster_id:batch_id")
+    mm <- model.matrix(as.formula(f), data = cd)
     
     # estimate NB parameters
     y <- DGEList(counts(x))
+    y <- calcNormFactors(y)
     y <- estimateDisp(y, mm)
     fit <- glmFit(y, prior.count = 0)
     x$offset <- c(fit$offset)
@@ -125,8 +116,8 @@ estPars <- function(x,
     b <- grep("batch_id", names(bs))
     k <- seq_len(ncol(mm))[-c(s, b)]
     bs_k <- matrix(bs[k],  1, nk, TRUE, list(NULL, kids))
-    bs_s <- matrix(bs[s], nk, ns, TRUE, list(kids, sids))
-    bs_b <- matrix(bs[b], nk, ns, TRUE, list(kids, bids))
+    bs_s <- matrix(bs[s], nk, ns-1, TRUE, list(kids, sids[-1]))
+    bs_b <- matrix(bs[b], nk, nb-1, TRUE, list(kids, bids[-1]))
 
     # write average logCPM, tagwise & trended 
     # dispersion estimates to gene metadata
@@ -134,8 +125,7 @@ estPars <- function(x,
     pars <- vapply(vars, function(u) y[[u]], numeric(nrow(x)))
     rowData(x) <- cbind(rowData(x), pars)
     
-    # store common dispersion, betas, 
-    # offset fits & function in metadata
+    # store function call, common dispersion & betas in metadata
     metadata(x) <- list(args = args[-1],
         common.dispersion = y$common.dispersion,
         betas = list(k = bs_k, s = bs_s, b = bs_b))
@@ -143,10 +133,3 @@ estPars <- function(x,
     # return SCE
     return(x)
 }
-# data(sce); x0 <- sce
-# x1 <- estPars(x0)
-# plotMeanDisp(x1)
-# 
-# metadata(x1)
-# metadata(x1)$betas
-# metadata(x1)$offsets
