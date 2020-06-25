@@ -16,14 +16,14 @@
 .check_arg_assay <- function(x, y) {
     stopifnot(is.character(y), length(y) == 1, y %in% assayNames(x))
     if (sum(assayNames(x) == y) > 1)
-        stop("Argument 'assay' was matched to multiple times.\n ", 
+        stop("Argument 'assay' was matched to multiple times.\n ",
             " Please assure that the input SCE has unique 'assayNames'.")
 }
 
 # check pseudo-bulks for DS analysis
 # (must have be aggregated by cluster-sample)
 #   x = SCE used for aggregation
-#   y = SCE containing pseudo-bulks as returned by 
+#   y = SCE containing pseudo-bulks as returned by
 #`      aggregateData(x, by = c("cluster_id", "sample_id"))
 #' @importFrom methods is
 #' @importFrom S4Vectors metadata
@@ -78,23 +78,23 @@
 #' @importFrom SummarizedExperiment assays colData
 .check_frq <- function(x, y) {
     stopifnot(
-        is(x, "SingleCellExperiment"), 
+        is(x, "SingleCellExperiment"),
         is(y, "SingleCellExperiment"))
     kids <- levels(x$cluster_id)
-    
+
     ids <- levels(x$sample_id)
     if ("group_id" %in% colnames(colData(x)))
         ids <- c(ids, levels(x$group_id))
     stopifnot(identical(ids, colnames(y)))
-    
+
     vals <- unlist(assays(y))
     stopifnot(all(vals <= 1), all(vals >= 0))
 }
 
 .check_args_simData <- function(u) {
     if (!u$force && u$ng != nrow(u$x))
-        stop("Number of simulated genes should match with reference,\n", 
-            "  but 'ng != nrow(x)'; please specify 'force = TRUE' if\n", 
+        stop("Number of simulated genes should match with reference,\n",
+            "  but 'ng != nrow(x)'; please specify 'force = TRUE' if\n",
             "  simulation should be forced regardlessly (see '?simData').")
     if (!is.null(u$phylo_tree) && u$p_type != 0)
         stop("Only one of arguments 'p_type' or 'phylo_tree'\n",
@@ -106,7 +106,7 @@
         ns_phylo <- as.numeric(gsub("[a-z]", "", kids_phylo))
         if (!all(sort(ns_phylo) == seq_len(nk_phylo)))
             stop("Some clusters appear to be missing from 'phylo_tree';\n",
-                "  please make sure all clusters up to ", 
+                "  please make sure all clusters up to ",
                 dQuote(kids_phylo[which.max(ns_phylo)]), " are present.")
         # possibly update number of clusters 'nk'
         if (nk_phylo != u$nk) u$nk <- nk_phylo
@@ -126,18 +126,18 @@
         is.logical(u$force), length(u$force) == 1,
         is.numeric(u$phylo_pars), length(u$phylo_pars) == 2, u$phylo_pars >= 0)
     if (!is.null(u$rel_lfc))
-        stopifnot(is.numeric(u$rel_lfc), 
+        stopifnot(is.numeric(u$rel_lfc),
             length(u$rel_lfc) == u$nk, u$rel_lfc >= 0)
     return(list(nk = u$nk))
 }
 
 #' @importFrom SummarizedExperiment colData
 .check_args_aggData <- function(u) {
-    stopifnot(is.character(u$by), length(u$by) <= 2, 
+    stopifnot(is.character(u$by), length(u$by) <= 2,
         u$by %in% colnames(colData(u$x)))
     stopifnot(is.logical(u$scale), length(u$scale) == 1)
     if (u$scale & (!u$assay %in% c("cpm", "CPM") | u$fun != "sum"))
-        stop("Option 'scale = TRUE' only valid for", 
+        stop("Option 'scale = TRUE' only valid for",
             " 'assay = \"cpm/CPM\"' and 'fun = \"sum\"'.")
 }
 
@@ -158,11 +158,11 @@
     stopifnot(
         is.null(u$covs) || is.character(u$covs) & all(u$covs %in% names(colData(u$x))),
         is.numeric(u$coef) & u$coef %in% seq_len(nlevels(u$x$group_id))
-        | is.character(u$coef) & u$coef %in% c("(Intercept)", 
+        | is.character(u$coef) & u$coef %in% c("(Intercept)",
             paste0("group_id", levels(u$x$group_id)[-1])),
-        !is.null(metadata(u$x)$experiment_info$group_id) | !is.null(u$x$group_id), 
+        !is.null(metadata(u$x)$experiment_info$group_id) | !is.null(u$x$group_id),
         is.numeric(u$n_cells), length(u$n_cells) == 1, u$n_cells >= 0,
-        is.numeric(u$n_samples), length(u$n_samples) == 1, u$n_samples >= 2,
+        is.numeric(u$n_samples), length(u$n_samples) == 1, u$n_samples >= 0,
         is.numeric(u$min_count), length(u$min_count) == 1, u$min_count >= 0,
         is.numeric(u$min_cells), length(u$min_cells) == 1, u$min_cells >= 0,
         is.numeric(u$n_threads), length(u$n_threads) == 1, u$n_threads >= 1,
@@ -186,7 +186,7 @@
         is.numeric(u$fdr), length(u$fdr) == 1, u$fdr > 0,
         is.numeric(u$lfc), length(u$lfc) == 1,
         is.character(u$sort_by), length(u$sort_by) == 1,
-        u$sort_by == "none" | 
+        u$sort_by == "none" |
             u$sort_by %in% names(u$y$table[[1]][[1]]) &
             is.numeric(u$y$table[[1]][[1]][[u$sort_by]]),
         is.function(u$fun),
