@@ -300,12 +300,12 @@
                 switch(family,
                     nbinom = {
                         mod <- glmmTMB(formula, df,
-                            family = nbinom1, REML = FALSE, na.action = na.pass)
+                            family = nbinom1, REML = FALSE)
                         coef(summary(mod))[[1]][coef, ] },
                     poisson = {
-                        mod <- bglmer(formula, df, family = "poisson", na.action = na.pass)
+                        mod <- bglmer(formula, df, family = "poisson")
                         coef(summary(mod))[coef, ] })
-            }, error=function(e) rep(NA_real_, 4))
+            }, error=function(e) rep(1, 4))
         }
     }, BPPARAM = MulticoreParam(n_threads, progressbar=verbose))
 
