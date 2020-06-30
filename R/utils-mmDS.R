@@ -84,7 +84,7 @@
     }
 
     contrast <- getContrast(v, as.formula(formula), cd, coef)
-    .dream <- expression(dream(v, formula, cd, contrast, ddf, 
+    .dream <- expression(dream(v, formula, cd, contrast, ddf,
         BPPARAM = bp, suppressWarnings = !verbose, quiet  = !verbose))
     if (verbose) fit <- eval(.dream) else suppressWarnings(fit <- eval(.dream))
     #fit <- eBayes(fit, trend = trended, robust = TRUE)
@@ -135,11 +135,11 @@
 
     if (verbose) print(formula)
     formula <- as.formula(formula)
-    
-    .dream <- expression(voomWithDreamWeights(y, 
+
+    .dream <- expression(voomWithDreamWeights(y,
         formula, cd, BPPARAM = bp, quiet = !verbose))
     if (verbose) v <- eval(.dream) else suppressMessages(v <- eval(.dream))
-    res <- dream(v, formula, cd, BPPARAM = bp, ddf = ddf, 
+    res <- dream(v, formula, cd, BPPARAM = bp, ddf = ddf,
         suppressWarnings = !verbose, quiet = !verbose)
     tbl <- topTable(res, coef = coef, Inf, sort.by = "none")
     rename(tbl, p_val = "P.Value", p_adj.loc = "adj.P.Val")
@@ -206,7 +206,7 @@
     cd <- data.frame(cd, check.names = FALSE)
     cd <- mutate_if(cd, is.factor, droplevels)
     if (!is.null(covs))
-        cd <- mutate_at(cd, covs, function(u) 
+        cd <- mutate_at(cd, covs, function(u)
             if (is.numeric(u)) scale(u))
     rownames(cd) <- colnames(x); cd
 }
@@ -248,12 +248,12 @@
 #' @describeIn mmDS
 #'
 #' see details.
-#' 
+#'
 #' @param family character string specifying which GLMM to fit:
 #'   \code{"poisson"} for \code{\link[blme:blmer]{bglmer}},
 #'   \code{"nbinom"} for \code{\link[glmmTMB]{glmmTMB}}.
 #' @param moderate logical; whether to perform empirical Bayes moderation.
-#' 
+#'
 #' @importFrom BiocParallel bplapply MulticoreParam
 #' @importFrom dplyr %>% bind_rows last
 #' @importFrom purrr set_names
@@ -300,7 +300,7 @@
                 switch(family,
                     nbinom = {
                         mod <- glmmTMB(formula, df,
-                            family = nbinom1, REML = FALSE)
+                            family = nbinom1, REML = FALSE, na.action = na.pass)
                         coef(summary(mod))[[1]][coef, ] },
                     poisson = {
                         mod <- bglmer(formula, df, family = "poisson")
@@ -339,7 +339,7 @@
 #' @importFrom SingleCellExperiment counts sizeFactors
 #' @importFrom stats model.matrix
 #' @importFrom SummarizedExperiment colData
-.mm_hybrid <- function(x, coef = NULL, covs = NULL, n_threads = 1, 
+.mm_hybrid <- function(x, coef = NULL, covs = NULL, n_threads = 1,
     verbose = TRUE, fam = c("nbinom","poisson"), th = 0.1) {
 
     fam <- match.arg(fam)
@@ -377,8 +377,8 @@
     }
 
     # pseudobulk analysis
-    res <- pbDS(pb, design = mm, 
-        coef = which(colnames(mm) == coef), 
+    res <- pbDS(pb, design = mm,
+        coef = which(colnames(mm) == coef),
         method = "edgeR", verbose = verbose)
     res <- res$table[[1]][[1]]
     cols <- c("F", "p_adj.loc", "coef", "p_adj.glb")
@@ -488,7 +488,7 @@
             map(as.data.frame) %>% map(pull, coef) %>%
             data.frame(row.names = names(f))
     } else {
-        res <- matrix(NA, nrow = 0, ncol = 4) 
+        res <- matrix(NA, nrow = 0, ncol = 4)
         colnames(res) <- c("beta", "stat", "p_val0", "p_val")
         as.data.frame(res)
     }
