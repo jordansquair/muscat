@@ -305,7 +305,7 @@
                     poisson = {
                         mod <- bglmer(formula, df, family = "poisson")
                         coef(summary(mod))[coef, ] })
-            }, error=function(e) rep(1, 4))
+            }, error=function(e) rep(NA_real_, 4))
         }
     }, BPPARAM = MulticoreParam(n_threads, progressbar=verbose))
 
@@ -313,7 +313,7 @@
         if (verbose) message("Applying empirical Bayes moderation..")
         fits <- .mm_eBayes(fits, coef)
     } else {
-        fits <- as.data.frame(t(bind_rows(fits)))
+        fits <- as.data.frame(bind_rows(fits))
         colnames(fits) <- c("beta", "SE", "stat", "p_val")
     }
     i <- which(colnames(fits) == "p_val")
