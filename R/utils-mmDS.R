@@ -303,7 +303,7 @@
                             family = nbinom1, REML = FALSE, na.action = na.pass)
                         coef(summary(mod))[[1]][coef, ] },
                     poisson = {
-                        mod <- bglmer(formula, df, family = "poisson")
+                        mod <- bglmer(formula, df, family = "poisson", na.action = na.pass)
                         coef(summary(mod))[coef, ] })
             }, error=function(e) rep(NA_real_, 4))
         }
